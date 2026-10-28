@@ -40,8 +40,9 @@ async def change_password(
 
 @router.delete("/me", status_code=status.HTTP_204_NO_CONTENT)
 async def delete_me(user: CurrentUser, session: SessionDep, redis: RedisDep) -> None:
-    await RefreshSessionStore(redis).revoke_all(user.id)
+    user_id = user.id
     await UserService(session).delete(user)
+    await RefreshSessionStore(redis).revoke_all(user_id)
 
 
 @router.get("")

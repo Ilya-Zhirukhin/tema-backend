@@ -1,6 +1,7 @@
 import uuid
 from collections.abc import Sequence
 
+from sqlalchemy import select
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from tema.core.exceptions import (
@@ -94,6 +95,18 @@ class UserService:
         await self.session.commit()
 
     async def delete(self, user: User) -> None:
+        # Импорт здесь: модуль команд сам зависит от пользователей.
+        from tema.modules.classrooms.models import MemberRole, Membership
+
+        owns = await self.session.scalar(
+            select(
+                select(Membership.classroom_id)
+                .where(Membership.user_id == user.id, Membership.role == MemberRole.OWNER)
+                .exists()
+            )
+        )
+        if owns:
+            raise ConflictError("Сначала удалите свои команды или дождитесь передачи владения")
         await self.repo.delete(user)
         await self.session.commit()
 
