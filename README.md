@@ -26,6 +26,7 @@ src/tema/
   modules/
     users/            # models → repository → service → router, schemas
     auth/             # регистрация, логин, refresh, logout, OAuth
+    classrooms/       # команды, участники и роли, коды приглашения, каналы
 migrations/           # Alembic (async)
 tests/
 ```
@@ -80,12 +81,22 @@ uv run alembic revision --autogenerate -m "описание"   # новая ми
 | GET | `/api/v1/users?q=` | поиск пользователей |
 | GET | `/api/v1/users/{id}` | публичный профиль |
 | PUT | `/api/v1/users/{id}/role` | смена роли (только admin) |
+| POST/GET | `/api/v1/classrooms` | создать команду / мои команды |
+| POST | `/api/v1/classrooms/join` | вступить по коду приглашения |
+| GET/PATCH/DELETE | `/api/v1/classrooms/{id}` | команда (изменять — модератор, удалять — владелец) |
+| POST | `/api/v1/classrooms/{id}/invite-code` | новый код приглашения |
+| GET | `/api/v1/classrooms/{id}/members` | участники |
+| PUT | `/api/v1/classrooms/{id}/members/{user_id}/role` | роль участника (владелец) |
+| DELETE | `/api/v1/classrooms/{id}/members/{user_id}` | выйти / исключить |
+| GET/POST | `/api/v1/classrooms/{id}/channels` | каналы команды |
+| PATCH/DELETE | `/api/v1/channels/{id}` | переименовать / удалить канал |
 
 ## План переноса из Flask-версии
 
 - [x] Пользователи, регистрация, вход, OAuth GitHub/Yandex
-- [ ] Команды (classrooms), участники и роли, коды приглашения
-- [ ] Каналы и сообщения, ответы в тредах
+- [x] Команды (classrooms), участники и роли (owner/moderator/member), коды приглашения
+- [x] Каналы
+- [ ] Сообщения в каналах, ответы в тредах
 - [ ] Чаты в реальном времени: WebSocket + Redis pub/sub
 - [ ] Личные сообщения
 - [ ] Заметки (посты) в каналах
