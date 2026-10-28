@@ -1,13 +1,16 @@
 import secrets
 import uuid
 from collections.abc import Sequence
+from typing import Any
 
+from pydantic import BaseModel
 from sqlalchemy.ext.asyncio import AsyncSession
 
+from tema.core.events import EventBus, classroom_topic, user_topic
 from tema.core.exceptions import ConflictError, NotFoundError, PermissionDeniedError
 from tema.modules.classrooms.models import Channel, Classroom, MemberRole, Membership
 from tema.modules.classrooms.repository import ClassroomRepository
-from tema.modules.classrooms.schemas import ClassroomCreate, ClassroomUpdate
+from tema.modules.classrooms.schemas import ChannelRead, ClassroomCreate, ClassroomUpdate
 from tema.modules.users.models import User
 
 # Без похожих символов (0/O, 1/I/L), чтобы код было удобно диктовать.
@@ -17,9 +20,23 @@ DEFAULT_CHANNEL = "General"
 
 
 class ClassroomService:
-    def __init__(self, session: AsyncSession) -> None:
+    def __init__(self, session: AsyncSession, events: EventBus | None = None) -> None:
         self.session = session
         self.repo = ClassroomRepository(session)
+        self.events = events
+
+    async def _emit_classroom(
+        self, classroom_id: uuid.UUID, event: str, data: BaseModel | dict[str, Any]
+    ) -> None:
+        if self.events is not None:
+            await self.events.publish(classroom_topic(classroom_id), event, data)
+
+    async def _emit_user(self, user_id: uuid.UUID, event: str, classroom_id: uuid.UUID) -> None:
+        # WebSocket пользователя по этому событию подписывается/отписывается от команды.
+        if self.events is not None:
+            await self.events.publish(
+                user_topic(user_id), event, {"classroom_id": str(classroom_id)}
+            )
 
     # --- доступ ---
 
@@ -46,6 +63,7 @@ class ClassroomService:
         self.repo.add(membership)
         self.repo.add(Channel(classroom_id=classroom.id, name=DEFAULT_CHANNEL))
         await self.session.commit()
+        await self._emit_user(user.id, "classroom.joined", classroom.id)
         return classroom, membership
 
     async def list_mine(self, user: User) -> Sequence[tuple[Classroom, Membership]]:
@@ -70,6 +88,7 @@ class ClassroomService:
         await self.require_member(classroom_id, user, MemberRole.OWNER)
         await self.repo.delete(await self._get_classroom(classroom_id))
         await self.session.commit()
+        await self._emit_classroom(classroom_id, "classroom.deleted", {"id": str(classroom_id)})
 
     async def regenerate_code(self, classroom_id: uuid.UUID, user: User) -> str:
         await self.require_member(classroom_id, user, MemberRole.MODERATOR)
@@ -88,6 +107,12 @@ class ClassroomService:
         membership = Membership(classroom_id=classroom.id, user_id=user.id)
         self.repo.add(membership)
         await self.session.commit()
+        await self._emit_classroom(
+            classroom.id,
+            "member.joined",
+            {"classroom_id": str(classroom.id), "user_id": str(user.id), "role": membership.role},
+        )
+        await self._emit_user(user.id, "classroom.joined", classroom.id)
         return classroom, membership
 
     # --- участники ---
@@ -107,6 +132,11 @@ class ClassroomService:
         target = await self._get_member(classroom_id, user_id)
         target.role = role
         await self.session.commit()
+        await self._emit_classroom(
+            classroom_id,
+            "member.updated",
+            {"classroom_id": str(classroom_id), "user_id": str(user_id), "role": role},
+        )
         return target
 
     async def remove_member(self, classroom_id: uuid.UUID, actor: User, user_id: uuid.UUID) -> None:
@@ -119,6 +149,12 @@ class ClassroomService:
             raise PermissionDeniedError()
         await self.repo.delete(target)
         await self.session.commit()
+        await self._emit_classroom(
+            classroom_id,
+            "member.left",
+            {"classroom_id": str(classroom_id), "user_id": str(user_id)},
+        )
+        await self._emit_user(user_id, "classroom.left", classroom_id)
 
     # --- каналы ---
 
@@ -133,6 +169,9 @@ class ClassroomService:
         channel = Channel(classroom_id=classroom_id, name=name)
         self.repo.add(channel)
         await self.session.commit()
+        await self._emit_classroom(
+            classroom_id, "channel.created", ChannelRead.model_validate(channel)
+        )
         return channel
 
     async def get_channel(
@@ -153,6 +192,9 @@ class ClassroomService:
             raise ConflictError("Канал с таким названием уже есть", field="name")
         channel.name = name
         await self.session.commit()
+        await self._emit_classroom(
+            channel.classroom_id, "channel.updated", ChannelRead.model_validate(channel)
+        )
         return channel
 
     async def delete_channel(self, channel_id: uuid.UUID, user: User) -> None:
@@ -161,6 +203,11 @@ class ClassroomService:
             raise ConflictError("Нельзя удалить последний канал команды")
         await self.repo.delete(channel)
         await self.session.commit()
+        await self._emit_classroom(
+            channel.classroom_id,
+            "channel.deleted",
+            {"id": str(channel.id), "classroom_id": str(channel.classroom_id)},
+        )
 
     # --- helpers ---
 

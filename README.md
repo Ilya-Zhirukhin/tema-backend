@@ -27,6 +27,7 @@ src/tema/
     users/            # models → repository → service → router, schemas
     auth/             # регистрация, логин, refresh, logout, OAuth
     classrooms/       # команды, участники и роли, коды приглашения, каналы
+    chat/             # сообщения в каналах, треды, личные сообщения, WebSocket
 migrations/           # Alembic (async)
 tests/
 ```
@@ -90,15 +91,30 @@ uv run alembic revision --autogenerate -m "описание"   # новая ми
 | DELETE | `/api/v1/classrooms/{id}/members/{user_id}` | выйти / исключить |
 | GET/POST | `/api/v1/classrooms/{id}/channels` | каналы команды |
 | PATCH/DELETE | `/api/v1/channels/{id}` | переименовать / удалить канал |
+| GET/POST | `/api/v1/channels/{id}/messages?before=&limit=` | лента канала (курсорная пагинация) / написать; `parent_id` — ответ в треде |
+| GET | `/api/v1/messages/{id}/replies` | ответы в треде |
+| PATCH/DELETE | `/api/v1/messages/{id}` | изменить своё / удалить (своё или модератором) |
+| GET | `/api/v1/dm` | список диалогов с последним сообщением и счётчиком непрочитанных |
+| GET/POST | `/api/v1/dm/{user_id}` | история / написать личное сообщение |
+| POST | `/api/v1/dm/{user_id}/read` | отметить прочитанным |
+| WS | `/api/v1/ws?token=<access>` | поток событий в реальном времени |
+
+### Realtime
+
+`/api/v1/ws` — один WebSocket на пользователя. Сообщения отправляются через REST, а сокет
+только доставляет события: `message.created|updated|deleted`, `channel.*`, `member.*`,
+`classroom.joined|left|deleted`, `dm.created`, `dm.read`. События публикуются в Redis pub/sub,
+поэтому работают при любом числе воркеров и инстансов. Подписки на команды обновляются на
+лету, когда пользователь вступает в команду или выходит из неё.
 
 ## План переноса из Flask-версии
 
 - [x] Пользователи, регистрация, вход, OAuth GitHub/Yandex
 - [x] Команды (classrooms), участники и роли (owner/moderator/member), коды приглашения
 - [x] Каналы
-- [ ] Сообщения в каналах, ответы в тредах
-- [ ] Чаты в реальном времени: WebSocket + Redis pub/sub
-- [ ] Личные сообщения
+- [x] Сообщения в каналах, ответы в тредах
+- [x] Чаты в реальном времени: WebSocket + Redis pub/sub
+- [x] Личные сообщения
 - [ ] Заметки (посты) в каналах
 - [ ] Задания с дедлайнами и сдача домашек (загрузка файлов в S3-совместимое хранилище)
 - [ ] Сброс пароля по email

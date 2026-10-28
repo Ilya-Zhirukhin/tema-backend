@@ -12,6 +12,7 @@ from sqlalchemy import text
 
 from tema.app import create_app
 from tema.core.config import Settings
+from tema.models import Base
 
 ROOT = Path(__file__).parent.parent
 PASSWORD = "correct-horse-battery"
@@ -53,9 +54,8 @@ async def app(settings: Settings) -> AsyncIterator[FastAPI]:
 @pytest.fixture(autouse=True)
 async def _clean(app: FastAPI) -> None:
     async with app.state.db.engine.begin() as conn:
-        await conn.execute(
-            text("TRUNCATE users, oauth_accounts, classrooms, memberships, channels CASCADE")
-        )
+        tables = ", ".join(t.name for t in Base.metadata.sorted_tables)
+        await conn.execute(text(f"TRUNCATE {tables} CASCADE"))
     await app.state.redis.flushdb()
 
 

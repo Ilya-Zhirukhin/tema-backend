@@ -59,7 +59,7 @@ select = [
     "ASYNC", "S", "DTZ", "PL", "PERF", "FURB", "RUF", "FAST", "ANN",
 ]
 ignore = [
-    "PLR0913",  # сервисы с keyword-only аргументами — нормально
+    "PLR0913", "PLR0917",  # FastAPI-хендлеры принимают много зависимостей
     "PLR2004",
     "RUF001", "RUF002", "RUF003",  # кириллица в строках и комментариях
     "TC001", "TC002", "TC003",  # FastAPI/Pydantic нужны типы в рантайме
@@ -96,6 +96,7 @@ filterwarnings = [
     "error",
     "ignore::DeprecationWarning:authlib.*",
     "ignore:The httpx module is deprecated",
+    "ignore:Using `httpx` with `starlette.testclient` is deprecated",
 ]
 
 [tool.coverage.run]

@@ -8,6 +8,7 @@ from sqlalchemy.ext.asyncio import AsyncSession
 from starlette.requests import HTTPConnection
 
 from tema.core.config import Settings
+from tema.core.events import EventBus
 from tema.core.exceptions import AuthenticationError, PermissionDeniedError
 from tema.core.security import decode_token
 from tema.modules.users.models import Role, User
@@ -28,9 +29,14 @@ def get_redis(conn: HTTPConnection) -> Redis:
     return redis
 
 
+def get_events(conn: HTTPConnection) -> EventBus:
+    return EventBus(conn.app.state.redis)
+
+
 SettingsDep = Annotated[Settings, Depends(get_settings)]
 SessionDep = Annotated[AsyncSession, Depends(get_session)]
 RedisDep = Annotated[Redis, Depends(get_redis)]
+EventsDep = Annotated[EventBus, Depends(get_events)]
 
 oauth2_scheme = OAuth2PasswordBearer(tokenUrl="/api/v1/auth/token", auto_error=False)
 
