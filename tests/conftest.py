@@ -21,8 +21,10 @@ type RegisterFn = Callable[..., Awaitable[dict[str, str]]]
 
 
 @pytest.fixture(scope="session")
-def settings() -> Settings:
+def settings(tmp_path_factory: pytest.TempPathFactory) -> Settings:
     return Settings(
+        storage_dir=tmp_path_factory.mktemp("uploads"),
+        max_upload_size=1024 * 1024,
         env="test",
         database_url=os.getenv(
             "TEMA_TEST_DATABASE_URL", "postgresql+asyncpg://tema:tema@localhost:5432/tema_test"

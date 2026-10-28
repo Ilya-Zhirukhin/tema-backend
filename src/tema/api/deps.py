@@ -11,6 +11,7 @@ from tema.core.config import Settings
 from tema.core.events import EventBus
 from tema.core.exceptions import AuthenticationError, PermissionDeniedError
 from tema.core.security import decode_token
+from tema.core.storage import Storage
 from tema.modules.users.models import Role, User
 
 
@@ -33,10 +34,16 @@ def get_events(conn: HTTPConnection) -> EventBus:
     return EventBus(conn.app.state.redis)
 
 
+def get_storage(conn: HTTPConnection) -> Storage:
+    storage: Storage = conn.app.state.storage
+    return storage
+
+
 SettingsDep = Annotated[Settings, Depends(get_settings)]
 SessionDep = Annotated[AsyncSession, Depends(get_session)]
 RedisDep = Annotated[Redis, Depends(get_redis)]
 EventsDep = Annotated[EventBus, Depends(get_events)]
+StorageDep = Annotated[Storage, Depends(get_storage)]
 
 oauth2_scheme = OAuth2PasswordBearer(tokenUrl="/api/v1/auth/token", auto_error=False)
 

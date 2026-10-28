@@ -1,5 +1,6 @@
 from datetime import timedelta
 from functools import lru_cache
+from pathlib import Path
 from typing import Literal
 
 from pydantic import AnyHttpUrl, PostgresDsn, RedisDsn, SecretStr
@@ -54,6 +55,9 @@ class Settings(BaseSettings):
     otel_exporter_endpoint: str = "http://localhost:4318/v1/traces"
 
     metrics_enabled: bool = True
+
+    storage_dir: Path = Path("var/uploads")
+    max_upload_size: int = 20 * 1024 * 1024  # 20 МБ
 
     @property
     def is_production(self) -> bool:

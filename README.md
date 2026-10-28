@@ -28,6 +28,8 @@ src/tema/
     auth/             # регистрация, логин, refresh, logout, OAuth
     classrooms/       # команды, участники и роли, коды приглашения, каналы
     chat/             # сообщения в каналах, треды, личные сообщения, WebSocket
+    notes/            # заметки (посты) в каналах
+    assignments/      # задания, дедлайны, сдача работ с файлами, оценки
 migrations/           # Alembic (async)
 tests/
 ```
@@ -97,6 +99,15 @@ uv run alembic revision --autogenerate -m "описание"   # новая ми
 | GET | `/api/v1/dm` | список диалогов с последним сообщением и счётчиком непрочитанных |
 | GET/POST | `/api/v1/dm/{user_id}` | история / написать личное сообщение |
 | POST | `/api/v1/dm/{user_id}/read` | отметить прочитанным |
+| GET/POST | `/api/v1/channels/{id}/notes` | заметки канала (закреплённые сверху) / создать |
+| GET/PATCH/DELETE | `/api/v1/notes/{id}` | заметка |
+| GET/POST | `/api/v1/channels/{id}/assignments` | задания канала / создать (преподаватель) |
+| GET | `/api/v1/assignments/upcoming` | мои дедлайны по всем командам |
+| GET/PATCH/DELETE | `/api/v1/assignments/{id}` | задание |
+| PUT/GET | `/api/v1/assignments/{id}/submission` | сдать (multipart: `text`, `file`) / моя работа |
+| GET | `/api/v1/assignments/{id}/submissions` | все работы (преподаватель) |
+| PUT | `/api/v1/submissions/{id}/grade` | оценить |
+| GET | `/api/v1/submissions/{id}/file` | скачать файл работы |
 | WS | `/api/v1/ws?token=<access>` | поток событий в реальном времени |
 
 ### Realtime
@@ -115,6 +126,6 @@ uv run alembic revision --autogenerate -m "описание"   # новая ми
 - [x] Сообщения в каналах, ответы в тредах
 - [x] Чаты в реальном времени: WebSocket + Redis pub/sub
 - [x] Личные сообщения
-- [ ] Заметки (посты) в каналах
-- [ ] Задания с дедлайнами и сдача домашек (загрузка файлов в S3-совместимое хранилище)
+- [x] Заметки (посты) в каналах
+- [x] Задания с дедлайнами, сдача домашек с файлами, оценки
 - [ ] Сброс пароля по email
