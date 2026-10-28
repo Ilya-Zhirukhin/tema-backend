@@ -257,3 +257,12 @@ async def test_deleting_user_removes_membership(
         await client.get(f"/api/v1/classrooms/{room['id']}/members", headers=auth_headers)
     ).json()
     assert [m["user"]["username"] for m in members] == ["ivan"]
+
+
+async def test_owner_cannot_delete_account_while_owning_classroom(
+    client: AsyncClient, auth_headers: dict[str, str]
+) -> None:
+    room = await create(client, auth_headers)
+    assert (await client.delete("/api/v1/users/me", headers=auth_headers)).status_code == 409
+    await client.delete(f"/api/v1/classrooms/{room['id']}", headers=auth_headers)
+    assert (await client.delete("/api/v1/users/me", headers=auth_headers)).status_code == 204

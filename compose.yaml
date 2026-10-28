@@ -13,6 +13,11 @@ x-app-env: &app-env
   TEMA_GITHUB_CLIENT_SECRET: ${TEMA_GITHUB_CLIENT_SECRET:-}
   TEMA_YANDEX_CLIENT_ID: ${TEMA_YANDEX_CLIENT_ID:-}
   TEMA_YANDEX_CLIENT_SECRET: ${TEMA_YANDEX_CLIENT_SECRET:-}
+  TEMA_SMTP_HOST: ${TEMA_SMTP_HOST:-}
+  TEMA_SMTP_PORT: ${TEMA_SMTP_PORT:-587}
+  TEMA_SMTP_USER: ${TEMA_SMTP_USER:-}
+  TEMA_SMTP_PASSWORD: ${TEMA_SMTP_PASSWORD:-}
+  TEMA_STORAGE_DIR: /app/var/uploads
 
 services:
   postgres:
@@ -49,9 +54,11 @@ services:
     build: .
     environment: *app-env
     ports: ["8000:8000"]
+    volumes: [uploads:/app/var/uploads]
     depends_on:
       migrate: { condition: service_completed_successfully }
       redis: { condition: service_healthy }
 
 volumes:
   postgres-data:
+  uploads:

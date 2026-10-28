@@ -31,6 +31,8 @@ WORKDIR /app
 COPY --from=builder --chown=app:app /app/.venv /app/.venv
 COPY --chown=app:app alembic.ini ./
 COPY --chown=app:app migrations ./migrations
+# Каталог загрузок принадлежит app: Docker скопирует владельца в именованный volume.
+RUN mkdir -p /app/var/uploads && chown -R app:app /app/var
 
 ENV PATH="/app/.venv/bin:$PATH" \
     PYTHONUNBUFFERED=1 \

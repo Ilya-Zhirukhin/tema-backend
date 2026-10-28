@@ -6,10 +6,17 @@ from fastapi import APIRouter, Depends, Request, Response, status
 from fastapi.responses import RedirectResponse
 from fastapi.security import OAuth2PasswordRequestForm
 
-from tema.api.deps import RedisDep, SessionDep, SettingsDep
+from tema.api.deps import MailerDep, RedisDep, SessionDep, SettingsDep
 from tema.core.exceptions import AuthenticationError, NotFoundError
+from tema.core.ratelimit import rate_limit
 from tema.modules.auth.oauth import fetch_profile
-from tema.modules.auth.schemas import LoginRequest, TokenResponse
+from tema.modules.auth.password_reset import PasswordResetService
+from tema.modules.auth.schemas import (
+    LoginRequest,
+    PasswordResetConfirm,
+    PasswordResetRequest,
+    TokenResponse,
+)
 from tema.modules.auth.service import TokenService
 from tema.modules.users.schemas import UserCreate, UserRead
 from tema.modules.users.service import UserService
@@ -34,13 +41,19 @@ def refresh_cookie(request: Request, settings: SettingsDep) -> str | None:
 RefreshCookie = Annotated[str | None, Depends(refresh_cookie)]
 
 
-@router.post("/register", status_code=status.HTTP_201_CREATED)
+# Защита от перебора паролей и спама регистрациями/письмами.
+login_limit = Depends(rate_limit("login", limit=10, window=60))
+register_limit = Depends(rate_limit("register", limit=5, window=60))
+reset_limit = Depends(rate_limit("password_reset", limit=3, window=300))
+
+
+@router.post("/register", status_code=status.HTTP_201_CREATED, dependencies=[register_limit])
 async def register(data: UserCreate, session: SessionDep) -> UserRead:
     user = await UserService(session).register(data)
     return UserRead.model_validate(user)
 
 
-@router.post("/login")
+@router.post("/login", dependencies=[login_limit])
 async def login(
     data: LoginRequest, response: Response, session: SessionDep, tokens: TokenServiceDep
 ) -> TokenResponse:
@@ -48,7 +61,11 @@ async def login(
     return await tokens.issue(user.id, response)
 
 
-@router.post("/token", summary="Login (OAuth2 form, для кнопки Authorize в Swagger)")
+@router.post(
+    "/token",
+    summary="Login (OAuth2 form, для кнопки Authorize в Swagger)",
+    dependencies=[login_limit],
+)
 async def login_form(
     form: Annotated[OAuth2PasswordRequestForm, Depends()],
     response: Response,
@@ -73,7 +90,36 @@ async def logout(response: Response, tokens: TokenServiceDep, token: RefreshCook
     await tokens.revoke(token, response)
 
 
-@router.get("/oauth/{provider}/login", include_in_schema=True)
+@router.post(
+    "/password-reset/request",
+    status_code=status.HTTP_202_ACCEPTED,
+    dependencies=[reset_limit],
+)
+async def request_password_reset(
+    data: PasswordResetRequest,
+    session: SessionDep,
+    redis: RedisDep,
+    mailer: MailerDep,
+    settings: SettingsDep,
+) -> None:
+    """Отправляет письмо со ссылкой, если такой email зарегистрирован. Ответ всегда 202."""
+    await PasswordResetService(session, redis, mailer, settings).request(data.email)
+
+
+@router.post("/password-reset/confirm", status_code=status.HTTP_204_NO_CONTENT)
+async def confirm_password_reset(
+    data: PasswordResetConfirm,
+    session: SessionDep,
+    redis: RedisDep,
+    mailer: MailerDep,
+    settings: SettingsDep,
+) -> None:
+    await PasswordResetService(session, redis, mailer, settings).confirm(
+        data.token, data.new_password
+    )
+
+
+@router.get("/oauth/{provider}/login")
 async def oauth_login(provider: Provider, request: Request) -> Response:
     client = request.app.state.oauth.create_client(provider)
     if client is None:

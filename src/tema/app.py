@@ -13,7 +13,9 @@ from tema.core.config import Settings, get_settings
 from tema.core.db import Database
 from tema.core.exceptions import register_exception_handlers
 from tema.core.logging import RequestContextMiddleware, configure_logging
+from tema.core.mail import create_mailer
 from tema.core.redis import create_redis
+from tema.core.storage import LocalStorage
 from tema.core.telemetry import setup_telemetry
 from tema.modules.auth.oauth import build_oauth
 
@@ -46,6 +48,8 @@ def create_app(settings: Settings | None = None) -> FastAPI:
     app.state.db = db
     app.state.redis = redis
     app.state.oauth = build_oauth(settings)
+    app.state.mailer = create_mailer(settings)
+    app.state.storage = LocalStorage(settings.storage_dir, settings.max_upload_size)
 
     # Последний добавленный middleware выполняется первым.
     app.add_middleware(

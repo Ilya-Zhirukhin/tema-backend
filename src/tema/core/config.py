@@ -1,5 +1,6 @@
 from datetime import timedelta
 from functools import lru_cache
+from pathlib import Path
 from typing import Literal
 
 from pydantic import AnyHttpUrl, PostgresDsn, RedisDsn, SecretStr
@@ -46,6 +47,17 @@ class Settings(BaseSettings):
     yandex_client_id: str | None = None
     yandex_client_secret: SecretStr | None = None
 
+    rate_limit_enabled: bool = True
+
+    # SMTP для писем (сброс пароля). Без smtp_host письма пишутся в лог.
+    smtp_host: str | None = None
+    smtp_port: int = 587
+    smtp_user: str | None = None
+    smtp_password: SecretStr | None = None
+    smtp_from: str = "Tema <noreply@tema.local>"
+    smtp_starttls: bool = True
+    password_reset_ttl: timedelta = timedelta(hours=1)
+
     log_level: str = "INFO"
     log_json: bool = False
 
@@ -54,6 +66,9 @@ class Settings(BaseSettings):
     otel_exporter_endpoint: str = "http://localhost:4318/v1/traces"
 
     metrics_enabled: bool = True
+
+    storage_dir: Path = Path("var/uploads")
+    max_upload_size: int = 20 * 1024 * 1024  # 20 МБ
 
     @property
     def is_production(self) -> bool:

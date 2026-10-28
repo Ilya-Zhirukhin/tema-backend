@@ -12,6 +12,7 @@ from sqlalchemy import text
 
 from tema.app import create_app
 from tema.core.config import Settings
+from tema.core.mail import MemoryMailer
 from tema.models import Base
 
 ROOT = Path(__file__).parent.parent
@@ -21,8 +22,10 @@ type RegisterFn = Callable[..., Awaitable[dict[str, str]]]
 
 
 @pytest.fixture(scope="session")
-def settings() -> Settings:
+def settings(tmp_path_factory: pytest.TempPathFactory) -> Settings:
     return Settings(
+        storage_dir=tmp_path_factory.mktemp("uploads"),
+        max_upload_size=1024 * 1024,
         env="test",
         database_url=os.getenv(
             "TEMA_TEST_DATABASE_URL", "postgresql+asyncpg://tema:tema@localhost:5432/tema_test"
@@ -47,6 +50,7 @@ def _migrate(settings: Settings) -> None:
 @pytest.fixture(scope="session")
 async def app(settings: Settings) -> AsyncIterator[FastAPI]:
     application = create_app(settings)
+    application.state.mailer = MemoryMailer()
     async with LifespanManager(application):
         yield application
 
@@ -57,6 +61,13 @@ async def _clean(app: FastAPI) -> None:
         tables = ", ".join(t.name for t in Base.metadata.sorted_tables)
         await conn.execute(text(f"TRUNCATE {tables} CASCADE"))
     await app.state.redis.flushdb()
+    app.state.mailer.outbox.clear()
+
+
+@pytest.fixture
+def mailer(app: FastAPI) -> MemoryMailer:
+    mailer: MemoryMailer = app.state.mailer
+    return mailer
 
 
 @pytest.fixture

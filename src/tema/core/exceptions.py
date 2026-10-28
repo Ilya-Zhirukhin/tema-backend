@@ -55,7 +55,11 @@ def _problem(request: Request, status: int, code: str, detail: Any, **extra: Any
         "instance": request.url.path,
         **extra,
     }
-    headers = {"WWW-Authenticate": "Bearer"} if status == HTTPStatus.UNAUTHORIZED else None
+    headers: dict[str, str] = {}
+    if status == HTTPStatus.UNAUTHORIZED:
+        headers["WWW-Authenticate"] = "Bearer"
+    if "retry_after" in extra:
+        headers["Retry-After"] = str(extra["retry_after"])
     return JSONResponse(body, status_code=status, media_type=PROBLEM_JSON, headers=headers)
 
 
