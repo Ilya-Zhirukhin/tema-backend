@@ -47,6 +47,17 @@ class Settings(BaseSettings):
     yandex_client_id: str | None = None
     yandex_client_secret: SecretStr | None = None
 
+    rate_limit_enabled: bool = True
+
+    # SMTP для писем (сброс пароля). Без smtp_host письма пишутся в лог.
+    smtp_host: str | None = None
+    smtp_port: int = 587
+    smtp_user: str | None = None
+    smtp_password: SecretStr | None = None
+    smtp_from: str = "Tema <noreply@tema.local>"
+    smtp_starttls: bool = True
+    password_reset_ttl: timedelta = timedelta(hours=1)
+
     log_level: str = "INFO"
     log_json: bool = False
 

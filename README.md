@@ -78,6 +78,8 @@ uv run alembic revision --autogenerate -m "описание"   # новая ми
 | POST | `/api/v1/auth/token` | вход OAuth2-формой (кнопка Authorize в Swagger) |
 | POST | `/api/v1/auth/refresh` | новый access-токен по refresh-cookie (ротация) |
 | POST | `/api/v1/auth/logout` | отзыв refresh-токена |
+| POST | `/api/v1/auth/password-reset/request` | письмо со ссылкой для сброса пароля (всегда 202) |
+| POST | `/api/v1/auth/password-reset/confirm` | новый пароль по токену из письма (отзывает все сессии) |
 | GET | `/api/v1/auth/oauth/{github,yandex}/login` | вход через провайдера |
 | GET/PATCH/DELETE | `/api/v1/users/me` | свой профиль |
 | PUT | `/api/v1/users/me/password` | смена пароля (разлогинивает другие устройства) |
@@ -128,4 +130,5 @@ uv run alembic revision --autogenerate -m "описание"   # новая ми
 - [x] Личные сообщения
 - [x] Заметки (посты) в каналах
 - [x] Задания с дедлайнами, сдача домашек с файлами, оценки
-- [ ] Сброс пароля по email
+- [x] Сброс пароля по email
+- [x] Rate limiting входа, регистрации и сброса пароля (Redis)
