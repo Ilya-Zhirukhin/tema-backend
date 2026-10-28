@@ -1,0 +1,57 @@
+# Локальный запуск всего стека: docker compose up --build
+# Переменные берутся из .env (скопируй .env.example).
+
+x-app-env: &app-env
+  TEMA_ENV: ${TEMA_ENV:-local}
+  TEMA_LOG_JSON: ${TEMA_LOG_JSON:-false}
+  TEMA_DATABASE_URL: postgresql+asyncpg://${POSTGRES_USER:-tema}:${POSTGRES_PASSWORD:-tema}@postgres:5432/${POSTGRES_DB:-tema}
+  TEMA_REDIS_URL: redis://redis:6379/0
+  TEMA_JWT_SECRET: ${TEMA_JWT_SECRET:?TEMA_JWT_SECRET is required, see .env.example}
+  TEMA_CORS_ORIGINS: ${TEMA_CORS_ORIGINS:-["http://localhost:5173"]}
+  TEMA_FRONTEND_URL: ${TEMA_FRONTEND_URL:-http://localhost:5173}
+  TEMA_GITHUB_CLIENT_ID: ${TEMA_GITHUB_CLIENT_ID:-}
+  TEMA_GITHUB_CLIENT_SECRET: ${TEMA_GITHUB_CLIENT_SECRET:-}
+  TEMA_YANDEX_CLIENT_ID: ${TEMA_YANDEX_CLIENT_ID:-}
+  TEMA_YANDEX_CLIENT_SECRET: ${TEMA_YANDEX_CLIENT_SECRET:-}
+
+services:
+  postgres:
+    image: postgres:18-alpine
+    environment:
+      POSTGRES_USER: ${POSTGRES_USER:-tema}
+      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD:-tema}
+      POSTGRES_DB: ${POSTGRES_DB:-tema}
+    ports: ["5432:5432"]
+    volumes: [postgres-data:/var/lib/postgresql]
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U $${POSTGRES_USER} -d $${POSTGRES_DB}"]
+      interval: 5s
+      timeout: 3s
+      retries: 10
+
+  redis:
+    image: redis:8-alpine
+    ports: ["6379:6379"]
+    healthcheck:
+      test: ["CMD", "redis-cli", "ping"]
+      interval: 5s
+      timeout: 3s
+      retries: 10
+
+  migrate:
+    build: .
+    command: ["alembic", "upgrade", "head"]
+    environment: *app-env
+    depends_on:
+      postgres: { condition: service_healthy }
+
+  api:
+    build: .
+    environment: *app-env
+    ports: ["8000:8000"]
+    depends_on:
+      migrate: { condition: service_completed_successfully }
+      redis: { condition: service_healthy }
+
+volumes:
+  postgres-data:
