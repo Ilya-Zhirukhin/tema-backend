@@ -1,9 +1,9 @@
-import asyncio
 import contextlib
 import json
 import uuid
 from typing import Any
 
+import anyio
 import structlog
 from fastapi import APIRouter, Query, WebSocket, WebSocketDisconnect, status
 from redis.asyncio.client import PubSub
@@ -53,19 +53,23 @@ async def realtime(websocket: WebSocket, token: str = Query()) -> None:
     log.info("ws_connected", user_id=str(user.id), classrooms=len(classroom_ids))
 
     try:
-        async with asyncio.TaskGroup() as tg:
-            forward = tg.create_task(_forward_events(websocket, pubsub, user.id))
-            await _read_client(websocket)
-            forward.cancel()
+        # anyio, а не asyncio.TaskGroup: корректно работает с отменой от сервера (cancel scope).
+        async with anyio.create_task_group() as tg:
+            tg.start_soon(_forward_events, websocket, pubsub)
+            try:
+                await _read_client(websocket)
+            finally:
+                tg.cancel_scope.cancel()
     except* WebSocketDisconnect:
         pass
     finally:
-        with contextlib.suppress(Exception):
+        # Соединение Redis нужно вернуть даже если обработчик отменили.
+        with anyio.CancelScope(shield=True), contextlib.suppress(Exception):
             await pubsub.aclose()
         log.info("ws_disconnected", user_id=str(user.id))
 
 
-async def _forward_events(websocket: WebSocket, pubsub: PubSub, user_id: uuid.UUID) -> None:
+async def _forward_events(websocket: WebSocket, pubsub: PubSub) -> None:
     async for raw in pubsub.listen():
         if raw["type"] != "message":
             continue
