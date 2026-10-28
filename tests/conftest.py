@@ -53,7 +53,9 @@ async def app(settings: Settings) -> AsyncIterator[FastAPI]:
 @pytest.fixture(autouse=True)
 async def _clean(app: FastAPI) -> None:
     async with app.state.db.engine.begin() as conn:
-        await conn.execute(text("TRUNCATE users, oauth_accounts RESTART IDENTITY CASCADE"))
+        await conn.execute(
+            text("TRUNCATE users, oauth_accounts, classrooms, memberships, channels CASCADE")
+        )
     await app.state.redis.flushdb()
 
 
